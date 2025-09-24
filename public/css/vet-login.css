@@ -1,0 +1,130 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #fff8f0 0%, #ffecd1 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  min-height: 100vh;
+}
+
+.login-container {
+  background: white;
+  border: 2px solid #f28c28;
+  border-radius: 20px;
+  padding: 3rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+  backdrop-filter: blur(10px);
+}
+
+.logo-section { text-align: center; margin-bottom: 2rem; }
+
+.logo-section h1 {
+  color: #d86f00;
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.logo-section p { color: #666; margin: 0.5rem 0 0; font-size: 1.1rem; }
+
+.veterinary-badge {
+  background: linear-gradient(135deg, #7b1fa2, #9c27b0);
+  color: white;
+  padding: 0.5rem 1.5rem;
+  border-radius: 25px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 1rem 0 2rem;
+  display: inline-block;
+}
+
+.professional-info {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #7b1fa2;
+}
+.professional-info h4 { margin: 0 0 .5rem 0; color: #7b1fa2; font-size: 1rem; }
+.professional-info p { margin: 0; color: #666; font-size: .9rem; line-height: 1.5; }
+
+.form-group { margin-bottom: 1.5rem; }
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.form-group input {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+.form-group input:focus {
+  outline: none;
+  border-color: #f28c28;
+  box-shadow: 0 0 0 3px rgba(242, 140, 40, 0.1);
+  transform: translateY(-2px);
+}
+.form-group input.error { border-color: #e74c3c; background-color: #fdf2f2; }
+.form-group input.success { border-color: #27ae60; background-color: #f2fdf2; }
+
+.error-message { color: #e74c3c; font-size: .875rem; margin-top: .5rem; display: none; }
+.error-message.visible { display: block; }
+
+.password-toggle { position: relative; }
+.password-toggle i {
+  position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
+  cursor: pointer; color: #666; transition: color 0.3s ease;
+}
+.password-toggle i:hover { color: #f28c28; }
+
+.login-btn {
+  width: 100%; padding: 1rem; font-size: 1.1rem; font-weight: 600;
+  background: linear-gradient(135deg, #f28c28, #d86f00); color: white;
+  border: none; border-radius: 10px; cursor: pointer; transition: all 0.3s ease;
+  margin-top: 1rem; box-shadow: 0 4px 15px rgba(242, 140, 40, 0.3);
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+}
+.login-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(242, 140, 40, 0.4); }
+.login-btn:active { transform: translateY(0); }
+.login-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+.additional-options { text-align: center; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e0e0e0; }
+.additional-options a { color: #f28c28; text-decoration: none; font-weight: 500; transition: color 0.3s ease; }
+.additional-options a:hover { color: #d86f00; text-decoration: underline; }
+
+.back-link {
+  position: absolute; top: 2rem; left: 2rem; background: white; color: #f28c28;
+  padding: .8rem 1.2rem; border: 2px solid #f28c28; border-radius: 10px;
+  text-decoration: none; font-weight: 600; transition: all .3s ease;
+  display: flex; align-items: center; gap: .5rem;
+}
+.back-link:hover { background: #f28c28; color: white; transform: translateY(-2px); }
+
+@media (max-width: 768px) {
+  .login-container { padding: 2rem; margin: 1rem; }
+  .back-link { position: relative; top: 0; left: 0; margin-bottom: 2rem; display: inline-flex; }
+}
+
+.loading { display: none; }
+.loading.active { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+
