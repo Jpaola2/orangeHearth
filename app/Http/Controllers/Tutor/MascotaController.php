@@ -36,7 +36,7 @@ class MascotaController extends Controller
             'espe_masc' => 'required|in:canino,felino,otro',
             'gene_masc' => 'required|in:macho,hembra',
             'edad_masc' => 'nullable|integer|min:1',
-            'unidad_edad' => 'nullable|string|in:dias,meses,aÃ±os',
+            'unidad_edad' => 'nullable|string|in:dias,meses,años',
         ]);
 
         Mascota::create([
@@ -66,7 +66,7 @@ class MascotaController extends Controller
             'espe_masc' => 'required|in:canino,felino,otro',
             'gene_masc' => 'required|in:macho,hembra',
             'edad_masc' => 'nullable|integer|min:1',
-            'unidad_edad' => 'nullable|string|in:dias,meses,aÃ±os',
+            'unidad_edad' => 'nullable|string|in:dias,meses,años',
         ]);
 
         $mascota->update($r->only('nom_masc', 'espe_masc', 'gene_masc', 'edad_masc', 'unidad_edad'));
@@ -80,3 +80,4 @@ class MascotaController extends Controller
         return back()->with('ok', 'Mascota eliminada');
     }
 }
+

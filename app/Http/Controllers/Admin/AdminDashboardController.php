@@ -11,12 +11,18 @@ use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Validation\Rule;
+
 use Symfony\Component\HttpFoundation\StreamedResponse;
+$options = new \Dompdf\Options();
+$dompdf  = new \Dompdf\Dompdf($options);
+
 
 class AdminDashboardController extends Controller
 {
@@ -72,223 +78,172 @@ public function summary(): JsonResponse
         ]);
     }
 
-    public function statistics(): JsonResponse
-    {
-        Carbon::setLocale('es');
-
-        return response()->json([
-            'monthly' => $this->buildMonthlyRegistrations(),
-            'species' => $this->buildSpeciesDistribution(),
-            'activity' => $this->buildWeeklyActivity(),
-        ]);
-    }
-
-    public function activities(): JsonResponse
-    {
-        return response()->json(['activities' => $this->buildActivityFeed()]);
-    }
-
-    public function users(): JsonResponse
-    {
-        return response()->json(['users' => $this->buildUserTableData()]);
-    }
-
+    // Lista de citas para la vista de administración (JSON)
     public function appointments(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'estado' => ['nullable', 'in:pendiente,confirmada,cancelada,completada'],
-            'veterinario' => ['nullable', 'integer', 'exists:medico_veterinario,id_mv'],
-            'fecha' => ['nullable', 'date'],
-        ]);
+        $filters = [
+            'estado' => $request->query('estado'),
+            'veterinario' => $request->query('veterinario'),
+            'fecha' => $request->query('fecha'),
+        ];
 
-        $appointments = $this->buildAppointmentQuery($filters)
+        $query = $this->buildAppointmentQuery($filters)
             ->with(['mascota', 'tutor', 'medico'])
-            ->orderBy('fech_cons')
-            ->get();
+            ->orderByDesc('fech_cons');
 
-        $transformed = $appointments->map(fn (Cita $cita) => $this->transformAppointment($cita));
-        $summary = $this->summarizeAppointments($appointments);
-        $globalSummary = $this->summarizeAppointments(
-            Cita::with(['mascota', 'tutor', 'medico'])->get()
-        );
+        $appointments = $query->get();
 
         return response()->json([
-            'appointments' => $transformed,
-            'summary' => $summary,
-            'globalSummary' => $globalSummary,
+            'appointments' => $appointments->map(fn (Cita $c) => $this->transformAppointment($c))->values(),
+            'summary' => $this->summarizeAppointments($appointments),
         ]);
     }
 
+    // Cambiar estado de una cita
     public function updateAppointmentStatus(Request $request, Cita $cita): JsonResponse
     {
         $data = $request->validate([
-            'estado' => ['required', 'in:pendiente,confirmada,cancelada,completada'],
+            'estado' => ['required', Rule::in(['pendiente', 'confirmada', 'completada', 'cancelada'])],
         ]);
 
+        $old = $cita->estado;
         $cita->estado = $data['estado'];
         $cita->save();
 
+        // Log simple en tabla cita_activity para notificaciones
+        try {
+            \Illuminate\Support\Facades\DB::table('cita_activity')->insert([
+                'cita_id' => $cita->id_cita_medi,
+                'old_estado' => (string) $old,
+                'new_estado' => (string) $cita->estado,
+                'actor_user_id' => optional($request->user())->id,
+                'actor_name' => optional($request->user())->name,
+                'actor_role' => optional($request->user())->role,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // Ignorar si la tabla no existe todavia
+        }
+
+        $cita->load(['mascota', 'tutor', 'medico']);
+
         return response()->json([
             'message' => 'Estado actualizado correctamente.',
-            'appointment' => $this->transformAppointment($cita->load(['mascota', 'tutor', 'medico'])),
+            'appointment' => $this->transformAppointment($cita),
         ]);
     }
 
+    // Exportar citas como CSV simple respetando filtros
     public function exportAppointments(Request $request): StreamedResponse
     {
-        $filters = $request->validate([
-            'estado' => ['nullable', 'in:pendiente,confirmada,cancelada,completada'],
-            'veterinario' => ['nullable', 'integer', 'exists:medico_veterinario,id_mv'],
-            'fecha' => ['nullable', 'date'],
-        ]);
-
-        $appointments = $this->buildAppointmentQuery($filters)
-            ->with(['mascota', 'tutor', 'medico'])
-            ->orderBy('fech_cons')
-            ->get();
-
-        $filename = 'citas_orangehearth_' . Carbon::now()->format('Ymd_His') . '.csv';
-
-        return Response::streamDownload(function () use ($appointments) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Fecha', 'Tutor', 'Mascota', 'Veterinario', 'Especialidad', 'Estado', 'Motivo']);
-            foreach ($appointments as $cita) {
-                fputcsv($handle, [
-                    $cita->fech_cons,
-                    $cita->tutor ? trim("{$cita->tutor->nomb_tutor} {$cita->tutor->apell_tutor}") : 'Sin tutor',
-                    optional($cita->mascota)->nom_masc ?? 'Sin mascota',
-                    $cita->medico ? trim("{$cita->medico->nombre_mv} {$cita->medico->apell_mv}") : 'Sin asignar',
-                    $cita->medico?->especialidad ?? 'Sin especificar',
-                    $cita->estado ?? 'pendiente',
-                    $cita->motiv_cons,
-                ]);
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
-    }
-
-    public function exportUsers(): StreamedResponse
-    {
-        $filename = 'usuarios_orangehearth_' . Carbon::now()->format('Ymd_His') . '.csv';
-        $users = $this->buildUserTableData();
-
-        return Response::streamDownload(function () use ($users) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Nombre', 'Email', 'Tipo', 'Tarjeta/Mascotas', 'Especialidad', 'Fecha Registro', 'Estado']);
-            foreach ($users as $user) {
-                fputcsv($handle, [
-                    $user['nombre'],
-                    $user['email'],
-                    $user['tipo'],
-                    $user['detalle'],
-                    $user['especialidad'],
-                    $user['fecha_registro'],
-                    $user['estado'],
-                ]);
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
-    }
-
-    public function exportData(): StreamedResponse
-    {
-        $payload = [
-            'generated_at' => Carbon::now()->toIso8601String(),
-            'totals' => [
-                'tutores' => Tutor::count(),
-                'veterinarios' => Medico::count(),
-                'mascotas' => Mascota::count(),
-                'citas' => Cita::count(),
-            ],
-            'tutores' => Tutor::with(['mascotas', 'citas'])->get(),
-            'veterinarios' => Medico::withCount('citas')->get(),
+        $filters = [
+            'estado' => $request->query('estado'),
+            'veterinario' => $request->query('veterinario'),
+            'fecha' => $request->query('fecha'),
         ];
 
-        $filename = 'datos_orangehearth_' . Carbon::now()->format('Ymd_His') . '.json';
-
-        return Response::streamDownload(function () use ($payload) {
-            echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        }, $filename, ['Content-Type' => 'application/json; charset=UTF-8']);
-    }
-
-    public function generateReport(Request $request): StreamedResponse
-    {
-        $filters = $request->validate([
-            'estado' => ['nullable', 'in:pendiente,confirmada,cancelada,completada'],
-            'veterinario' => ['nullable', 'integer', 'exists:medico_veterinario,id_mv'],
-            'fecha' => ['nullable', 'date'],
-        ]);
-
-        $appointments = $this->buildAppointmentQuery($filters)
+        $rows = $this->buildAppointmentQuery($filters)
             ->with(['mascota', 'tutor', 'medico'])
-            ->orderBy('fech_cons')
+            ->orderByDesc('fech_cons')
             ->get();
 
-        $summary = $this->summarizeAppointments($appointments);
+        $filename = 'citas_' . Carbon::now()->format('Ymd_His') . '.csv';
 
-        $lines = [];
-        $lines[] = '===== REPORTE DEL SISTEMA ORANGEHEARTH =====';
-        $lines[] = 'Generado: ' . Carbon::now()->format('d/m/Y H:i');
-        $lines[] = '';
-
-        if ($filters) {
-            $lines[] = 'Filtros aplicados:';
-            if (!empty($filters['estado'])) {
-                $lines[] = '- Estado: ' . ucfirst($filters['estado']);
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            // Encabezados
+            fputcsv($out, ['Fecha', 'Mascota', 'Tutor', 'Veterinario', 'Especialidad', 'Estado']);
+            foreach ($rows as $cita) {
+                $t = $this->transformAppointment($cita);
+                fputcsv($out, [
+                    $t['fecha'],
+                    $t['mascota'],
+                    $t['tutor'],
+                    $t['veterinario'],
+                    $t['especialidad'],
+                    $t['estado'],
+                ]);
             }
-            if (!empty($filters['veterinario'])) {
-                $medico = Medico::find($filters['veterinario']);
-                if ($medico) {
-                    $lines[] = '- Veterinario: ' . trim("{$medico->nombre_mv} {$medico->apell_mv}");
-                }
-            }
-            if (!empty($filters['fecha'])) {
-                $lines[] = '- Fecha: ' . Carbon::parse($filters['fecha'])->format('d/m/Y');
-            }
-            $lines[] = '';
-        }
-
-        $lines[] = 'Total de citas analizadas: ' . $appointments->count();
-        $lines[] = 'Citas hoy: ' . $summary['citas_hoy'];
-        $lines[] = 'Esta semana: ' . $summary['citas_semana'];
-        $lines[] = 'Confirmadas: ' . $summary['confirmadas'];
-        $lines[] = 'Pendientes: ' . $summary['pendientes'];
-        $lines[] = '';
-
-        $states = $appointments->groupBy(fn ($cita) => $cita->estado ?? 'pendiente')->map->count();
-        $lines[] = 'DistribuciÃ³n por estado:';
-        foreach ($states as $estado => $count) {
-            $lines[] = sprintf(' - %s: %d', ucfirst($estado), $count);
-        }
-
-        $lines[] = '';
-        $lines[] = 'Top veterinarios por nÃºmero de citas:';
-        $byVet = $appointments->groupBy(fn ($cita) => $cita->medico?->id_mv ?: 0)
-            ->map(function ($group) {
-                $medico = $group->first()->medico;
-                return [
-                    'nombre' => $medico ? trim("{$medico->nombre_mv} {$medico->apell_mv}") : 'Sin asignar',
-                    'total' => $group->count(),
-                ];
-            })
-            ->sortByDesc('total')
-            ->take(5);
-
-        foreach ($byVet as $data) {
-            $lines[] = sprintf(' - %s: %d', $data['nombre'], $data['total']);
-        }
-
-        $filename = 'reporte_orangehearth_' . Carbon::now()->format('Ymd_His') . '.txt';
-
-        return Response::streamDownload(function () use ($lines) {
-            echo implode(PHP_EOL, $lines);
-        }, $filename, ['Content-Type' => 'text/plain; charset=UTF-8']);
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
-    public function storeVeterinarian(Request $request): JsonResponse
+    // Reporte PDF de citas (similar al del veterinario)
+    public function exportAppointmentsPdf(Request $request): StreamedResponse
+    {
+        $filters = [
+            'estado' => $request->query('estado'),
+            'veterinario' => $request->query('veterinario'),
+            'fecha' => $request->query('fecha'),
+        ];
+
+        $rows = $this->buildAppointmentQuery($filters)
+            ->with(['mascota', 'tutor', 'medico'])
+            ->orderByDesc('fech_cons')
+            ->get();
+
+        $html = view('admin.reports.appointments', [
+            'now' => \Carbon\Carbon::now(),
+            'citas' => $rows,
+        ])->render();
+
+        $options = new \Dompdf\Options();
+        $options->set('isRemoteEnabled', false);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->setIsHtml5ParserEnabled(true);
+
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = 'reporte_citas_' . now()->format('Ymd_His') . '.pdf';
+
+        return response()->streamDownload(function () use ($dompdf) {
+            echo $dompdf->output();
+        }, $filename, ['Content-Type' => 'application/pdf']);
+    }
+    // Listar usuarios para la sección de administración
+    public function users(): JsonResponse
+    {
+        return response()->json([
+            'users' => $this->buildUserTableData(),
+        ]);
+    }
+
+    // Exportar usuarios como CSV
+    public function exportUsers(): StreamedResponse
+    {
+        $rows = $this->buildUserTableData();
+        $filename = 'usuarios_' . Carbon::now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Nombre', 'Email', 'Tipo', 'Tarjeta/Mascotas', 'Especialidad', 'Fecha registro', 'Estado']);
+            foreach ($rows as $u) {
+                fputcsv($out, [
+                    $u['nombre'] ?? '',
+                    $u['email'] ?? '',
+                    $u['tipo'] ?? '',
+                    $u['detalle'] ?? '',
+                    $u['especialidad'] ?? '',
+                    $u['fecha_registro'] ?? '',
+                    $u['estado'] ?? '',
+                ]);
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function storeVeterinarian(Request $request): JsonResponse|RedirectResponse
     {
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:150'],
+            'cedula' => ['required', 'string', 'max:20'],
             'correo' => ['required', 'email', 'max:150', 'unique:users,email'],
             'clave' => ['required', 'string', 'min:8'],
             'especialidad' => ['required', 'string', 'max:120'],
@@ -305,28 +260,31 @@ public function summary(): JsonResponse
             'role' => 'vet',
         ]);
 
-        $identificador = strtoupper($data['tarjeta_profesional']);
-
         $medico = Medico::create([
             'nombre_mv' => $nombre,
             'apell_mv' => $apellido,
-            'cedu_mv' => $identificador,
-            'tarjeta_profesional_mv' => $identificador,
+            'cedu_mv' => $data['cedula'],
+            'tarjeta_profesional_mv' => $data['tarjeta_profesional'],
             'user_id' => $user->id,
             'especialidad' => $data['especialidad'],
             'telefono' => $data['telefono'],
             'estado' => 'activo',
         ]);
 
-        return response()->json([
+        $payload = [
             'message' => 'Veterinario registrado exitosamente.',
             'veterinario' => [
                 'id' => $medico->id_mv,
                 'nombre' => trim("{$medico->nombre_mv} {$medico->apell_mv}"),
             ],
-        ], 201);
-    }
+        ];
 
+        if ($request->expectsJson()) {
+            return response()->json($payload, 201);
+        }
+
+        return redirect()->route('admin.dashboard')->with('success', $payload['message']);
+    }
     private function buildMonthlyRegistrations(): array
     {
         Carbon::setLocale('es');
@@ -450,6 +408,7 @@ public function summary(): JsonResponse
             $createdAt = $tutor->user?->created_at;
 
             return [
+                'id' => $tutor->user?->id,   // 👈 agregado
                 'nombre' => $fullName,
                 'email' => $tutor->correo_tutor,
                 'tipo' => 'Tutor',
@@ -465,6 +424,7 @@ public function summary(): JsonResponse
             $createdAt = $medico->user?->created_at;
 
             return [
+                'id' => $medico->user?->id,   // 👈 agregado
                 'nombre' => $fullName,
                 'email' => $medico->user?->email ?? 'Sin usuario',
                 'tipo' => 'Veterinario',
@@ -481,6 +441,7 @@ public function summary(): JsonResponse
             ->values()
             ->all();
     }
+
 
     private function buildAppointmentQuery(array $filters)
     {
@@ -551,5 +512,113 @@ public function summary(): JsonResponse
 
         return [$first, $last];
     }
+
+    // Genera y descarga un reporte PDF del sistema
+    public function exportSystemReportPdf()
+    {
+        $now = Carbon::now();
+
+        $totTutores  = Tutor::count();
+        $totVets     = Medico::count();
+        $totUsers    = $totTutores + $totVets;
+        $totMascotas = Mascota::count();
+        $totCitas    = Cita::count();
+
+        $lastUsers = User::whereIn('role', ['tutor', 'vet'])
+            ->latest('created_at')
+            ->take(5)
+            ->get(['name','email','role','created_at']);
+
+        $html = view('admin.reports.system', compact(
+            'now','totTutores','totVets','totUsers','totMascotas','totCitas','lastUsers'
+        ))->render();
+
+        $options = new \Dompdf\Options();
+        $options->set('isRemoteEnabled', false);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->setIsHtml5ParserEnabled(true);
+
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = 'reporte_orangehearth_' . $now->format('Ymd_His') . '.pdf';
+
+        return response()->streamDownload(function () use ($dompdf) {
+            echo $dompdf->output();
+        }, $filename, ['Content-Type' => 'application/pdf']);
+    }
+
+    public function updateUser(Request $request, User $user): JsonResponse
+    {
+        // Editaremos solo nombre y email (cambiar role puede ser más delicado por relaciones)
+        $data = $request->validate([
+            'name'  => ['required','string','max:150'],
+            'email' => ['required','email','max:150', Rule::unique('users','email')->ignore($user->id)],
+        ]);
+
+        $user->update($data);
+
+        // Si es vet, opcional: sincronizar nombre en su ficha (si quieres)
+        if ($user->role === 'vet') {
+            $medico = Medico::where('user_id', $user->id)->first();
+            if ($medico) {
+                // dividir nombre en nombre/apellido de forma simple
+                [$first, $last] = preg_split('/\s+/', trim($data['name']), 2) + [1 => ''];
+                $medico->update(['nombre_mv' => $first, 'apell_mv' => $last]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Usuario actualizado correctamente.',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+        ]);
+    }
+
+    public function destroyUser(User $user): JsonResponse
+    {
+        // Protecciones básicas para no romper integridad
+        if ($user->role === 'admin') {
+            return response()->json([
+                'message' => 'No puedes eliminar un administrador desde aquí.'
+            ], 422);
+        }
+
+        return DB::transaction(function () use ($user) {
+            // Si es veterinario, borra su ficha primero (evita FK)
+            if ($user->role === 'vet') {
+                Medico::where('user_id', $user->id)->delete();
+            }
+
+            // Si es tutor, puedes impedir eliminar si tiene mascotas/citas (seguro).
+            // Ajusta esto a tu modelo real:
+            $tutor = Tutor::where('user_id', $user->id)->first();
+            if ($tutor) {
+                $tieneMascotas = $tutor->mascotas()->exists();
+                $tieneCitas    = $tutor->citas()->exists();
+                if ($tieneMascotas || $tieneCitas) {
+                    return response()->json([
+                        'message' => 'No se puede eliminar: el tutor tiene mascotas y/o citas vinculadas.'
+                    ], 409);
+                }
+                $tutor->delete();
+            }
+
+            $user->delete();
+
+            return response()->json(['message' => 'Usuario eliminado.']);
+        });
+    }
+
 }
+
+
+
+
+
 

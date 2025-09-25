@@ -314,7 +314,7 @@ body {
   color: #333333;
 }
 
-.data-table tr:hover {\n  background: var(--gris-claro);\n}\n\n.appointment-today {\n  background: #fff3cd;\n}\n
+.data-table tr:hover { background: var(--gris-claro);}.appointment-today {background: #fff3cd;}
 
 .empty-cell {
   text-align: center;

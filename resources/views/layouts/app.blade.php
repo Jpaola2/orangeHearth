@@ -2,19 +2,19 @@
   <h3><i class="fas fa-chart-pie"></i> Resumen general del sistema</h3>
   <div class="stats-grid">
     <div class="stat-card usuarios">
-      <div class="stat-number" id="totalUsuarios">{{ data_get($preload, 'totals.usuarios', 0) }}</div>
+      <div class="stat-number" id="totalUsuarios">{{ data_get( 'totals.usuarios', 0) }}</div>
       <div class="stat-label">Usuarios registrados</div>
     </div>
     <div class="stat-card mascotas">
-      <div class="stat-number" id="totalMascotas">{{ data_get($preload, 'totals.mascotas', 0) }}</div>
+      <div class="stat-number" id="totalMascotas">{{ data_get( 'totals.mascotas', 0) }}</div>
       <div class="stat-label">Mascotas registradas</div>
     </div>
     <div class="stat-card citas">
-      <div class="stat-number" id="totalCitas">{{ data_get($preload, 'totals.citas', 0) }}</div>
+      <div class="stat-number" id="totalCitas">{{ data_get('totals.citas', 0) }}</div>
       <div class="stat-label">Citas agendadas</div>
     </div>
     <div class="stat-card veterinarios">
-      <div class="stat-number" id="totalVeterinarios">{{ data_get($preload, 'totals.veterinarios', 0) }}</div>
+      <div class="stat-number" id="totalVeterinarios">{{ data_get( 'totals.veterinarios', 0) }}</div>
       <div class="stat-label">Veterinarios activos</div>
     </div>
   </div>

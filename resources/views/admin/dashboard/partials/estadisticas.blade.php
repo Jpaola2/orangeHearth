@@ -1,4 +1,4 @@
-<section id="estadisticas" class="dashboard-section">
+<section id="estadisticas" class="dashboard-section" >
   <h3><i class="fas fa-chart-line"></i> Estadisticas detalladas</h3>
   <div class="chart-grid">
     <div class="chart-container">

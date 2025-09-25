@@ -6,8 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'Administrador - Orange Hearth')</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js" defer></script>
-  <script src="https://kit.fontawesome.com/a2e0e6e6f1.js" crossorigin="anonymous" defer></script>
-  <link rel="stylesheet" href="{{ asset('css/admin/dashboard.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">  <link rel="stylesheet" href="{{ asset('css/admin/dashboard.css') }}">
   <script src="{{ asset('js/admin/dashboard.js') }}" defer></script>
   @stack('head')
 </head>

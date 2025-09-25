@@ -7,7 +7,9 @@ window.adminShowSection = window.adminShowSection || function(id, ev){
   var links = document.querySelectorAll('.sidebar a');
   links.forEach(function(a){ a.classList && a.classList.toggle('active', a.dataset && a.dataset.section === id); });
   return false;
-};\nconst readyCallbacks = [];
+}
+
+const readyCallbacks = [];
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => readyCallbacks.forEach(cb => cb()));
@@ -26,8 +28,11 @@ onReady(() => {
     return;
   }
 
-  const config = parseConfig(root.dataset.config || root.getAttribute('data-config'));
-  const preload = parseConfig(root.dataset.preload || root.getAttribute('data-preload'));
+  const rawConfig = root.dataset.config || root.getAttribute('data-config') || window.dashboardConfig;
+  const rawPreload = root.dataset.preload || root.getAttribute('data-preload') || window.dashboardPreload;
+
+  const config = parseConfig(rawConfig);
+  const preload = parseConfig(rawPreload);
 
   if (!config) {
     console.warn('Admin dashboard configuration missing or invalid.');
@@ -206,24 +211,42 @@ function setupAppointmentsActions(elements, state, config) {
 
 function setupVetForm(elements, state, config) {
   if (!elements.vetForm) return;
+
   elements.vetForm.addEventListener('submit', async event => {
     event.preventDefault();
+
     const formData = new FormData(elements.vetForm);
     const payload = Object.fromEntries(formData.entries());
+
     try {
-      const response = await fetch(config.endpoints.storeVet, { method: 'POST', headers: buildHeaders(config.csrfToken, true), body: JSON.stringify(payload), credentials: 'same-origin' });
-      if (!response.ok) throw new Error(await extractError(response));
+      const response = await fetch(config.endpoints.storeVet, {
+        method: 'POST',
+        headers: buildHeaders(config.csrfToken, true),
+        body: JSON.stringify(payload),
+        credentials: 'same-origin',
+      });
+
+      if (!response.ok) {
+        const message = await extractError(response);
+        const error = new Error(message || 'No fue posible registrar el veterinario.');
+        error.status = response.status;
+        throw error;
+      }
+
       const data = await response.json();
       elements.vetForm.reset();
       state.veterinarios.push(data.veterinario);
       populateVeterinarios(elements.filtroVeterinario, state.veterinarios);
       flashMessage(elements.alert, 'success', data.message || 'Registro exitoso.');
-      refreshSummary(config, elements);
-      loadUsers(config, elements);
-      loadAppointments(state, config, elements);
+
+      const redirectUrl = (config.redirects && config.redirects.dashboard) || '/admin';
+      setTimeout(() => { window.location.href = redirectUrl; }, 600);
     } catch (error) {
       console.error(error);
-      flashMessage(elements.alert, 'error', error.message || 'No fue posible registrar el veterinario.');
+      const message = error && error.status === 422
+        ? 'Datos invalidos. Revisa la informacion e intentalo nuevamente.'
+        : ((error && error.message) ? error.message : 'No fue posible registrar el veterinario.');
+      flashMessage(elements.alert, 'error', message);
     }
   });
 }
@@ -547,5 +570,10 @@ function escapeHtml(value) {
 function formatDateISO(date) { const y = date.getFullYear(); const m = String(date.getMonth()+1).padStart(2,'0'); const d = String(date.getDate()).padStart(2,'0'); return `${y}-${m}-${d}`; }
 
 function getFilenameFromHeaders(headers) { const disp = headers.get('Content-Disposition'); if (!disp) return null; const match = disp.match(/filename="?([^";]+)"?/); return match ? match[1] : null; }
+
+
+
+
+
 
 

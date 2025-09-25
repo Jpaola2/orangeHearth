@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>OrangeHearth — Acceso</title>
-  <script src="https://kit.fontawesome.com/a2e0e6e6f1.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="{{ asset('css/vet-login.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">  <link rel="stylesheet" href="{{ asset('css/vet-login.css') }}">
 </head>
 <body>
   @yield('content')

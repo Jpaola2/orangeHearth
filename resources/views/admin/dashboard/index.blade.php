@@ -16,6 +16,9 @@
       'report' => route('admin.report.generate'),
       'storeVet' => route('admin.veterinarios.store'),
     ],
+    'redirects' => [
+      'dashboard' => route('admin.dashboard'),
+    ],
     'veterinarios' => $veterinarios,
   ];
 @endphp
@@ -24,7 +27,12 @@
 
 @section('body')
   @include('admin.dashboard.partials.header')
-  <div class="dashboard-container" id="admin-dashboard" data-config="@json($dashboardConfig)">
+  <div
+    class="dashboard-container"
+    id="admin-dashboard"
+    data-config="@json($dashboardConfig, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)"
+    data-preload="@json($preload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)"
+  >
     @include('admin.dashboard.partials.sidebar')
     <main class="main-content">
       <div class="alert-message" id="dashboardAlert"></div>
@@ -37,4 +45,31 @@
       @include('admin.dashboard.partials.registro-vet')
     </main>
   </div>
+
+  <script>
+    // Hacer que sea global para que la use el sidebar
+    window.adminShowSection = function (id, event) {
+      if (event) event.preventDefault();
+
+      // Ocultar todas las secciones
+      document.querySelectorAll('.dashboard-section').forEach(sec => sec.style.display = 'none');
+
+      // Mostrar la seleccionada
+      const target = document.getElementById(id);
+      if (target) {
+        target.style.display = 'block';
+      }
+    };
+
+    // Al cargar la pagina, mostrar solo la primera (ej: "resumen")
+    document.addEventListener('DOMContentLoaded', () => {
+      window.adminShowSection('resumen');
+    });
+  </script>
 @endsection
+
+
+
+
+
+
