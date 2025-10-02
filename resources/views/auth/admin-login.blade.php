@@ -1,4 +1,4 @@
-@extends('layouts.auth')
+﻿@extends('layouts.auth')
 
 @section('content')
   <a href="{{ url('/') }}" class="back-link">
@@ -60,9 +60,9 @@
     </form>
 
     <div class="additional-options">
-      <p><a href="{{ route('password.request') }}">¿Olvidaste tu contraseña?</a></p>
-      <p>¿Problemas para acceder? <a href="#" onclick="mostrarAyuda()">Contactar Soporte</a></p>
-      <p><a href="{{ url('/') }}">← Regresar a la página principal</a></p>
+      <p><a href="{{ route('admin.password.request') }}">¿Olvidaste tu contraseña?</a></p>
+      <p>¿Eres nuevo? <a href="{{ route('admin.register.create') }}">Registrar administrador</a></p>
+      <p><a href="{{ url('/') }}">↩ Regresar a la página principal</a></p>
     </div>
   </div>
 @endsection

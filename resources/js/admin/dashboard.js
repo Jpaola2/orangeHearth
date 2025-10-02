@@ -53,6 +53,7 @@ onReady(() => {
   setupUsersActions(elements, config);
   setupAppointmentsActions(elements, state, config);
   setupVetForm(elements, state, config);
+  setupAdminForm(elements, config);
   populateVeterinarios(elements.filtroVeterinario, state.veterinarios);
 
   // Inicializar filtros desde los inputs
@@ -119,6 +120,7 @@ function collectElements() {
       pendientes: document.getElementById('citasPendientes'),
     },
     vetForm: document.getElementById('vetForm'),
+    adminForm: document.getElementById('adminForm'),
   };
 }
 
@@ -207,6 +209,46 @@ function setupAppointmentsActions(elements, state, config) {
       updateAppointmentStatus(id, newStatus, state, config, elements);
     });
   }
+}
+
+function setupAdminForm(elements, config) {
+  if (!elements.adminForm) return;
+
+  elements.adminForm.addEventListener('submit', async event => {
+    event.preventDefault();
+
+    const formData = new FormData(elements.adminForm);
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+      const response = await fetch(config.endpoints.storeAdmin, {
+        method: 'POST',
+        headers: buildHeaders(config.csrfToken, true),
+        body: JSON.stringify(payload),
+        credentials: 'same-origin',
+      });
+
+      if (!response.ok) {
+        const message = await extractError(response);
+        const error = new Error(message || 'No fue posible registrar el administrador.');
+        error.status = response.status;
+        throw error;
+      }
+
+      const data = await response.json();
+      elements.adminForm.reset();
+      flashMessage(elements.alert, 'success', data.message || 'Registro exitoso.');
+
+      const redirectUrl = (config.redirects && config.redirects.dashboard) || '/admin';
+      setTimeout(() => { window.location.href = redirectUrl; }, 600);
+    } catch (error) {
+      console.error(error);
+      const message = error && error.status === 422
+        ? 'Datos invalidos. Revisa la informacion e intentalo nuevamente.'
+        : ((error && error.message) ? error.message : 'No fue posible registrar el administrador.');
+      flashMessage(elements.alert, 'error', message);
+    }
+  });
 }
 
 function setupVetForm(elements, state, config) {

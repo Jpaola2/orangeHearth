@@ -15,25 +15,31 @@ class TutorController extends Controller
 
         $tutores = Tutor::withCount('mascotas')
             ->when($q !== '', function ($query) use ($q) {
-                $query->where('correo_tutor', 'like', "%{$q}%")
-                    ->orWhere('ced_tutor', 'like', "%{$q}%")
-                    ->orWhere('nomb_tutor', 'like', "%{$q}%")
-                    ->orWhere('apell_tutor', 'like', "%{$q}%");
+                $needle = mb_strtolower($q);
+                $query->where(function ($q2) use ($needle) {
+                    $q2->whereRaw('LOWER(correo_tutor) LIKE ?', ["%{$needle}%"]) // correo
+                       ->orWhere('ced_tutor', 'like', "%{$needle}%")        // cédula
+                       ->orWhereRaw('LOWER(nomb_tutor) LIKE ?', ["%{$needle}%"]) // nombre
+                       ->orWhereRaw('LOWER(apell_tutor) LIKE ?', ["%{$needle}%"]) // apellido
+                       // nombre completo: "nombre apellido"
+                       ->orWhereRaw("LOWER(CONCAT(COALESCE(nomb_tutor,''),' ',COALESCE(apell_tutor,''))) LIKE ?", ["%{$needle}%"]);
+                });
             })
             ->orderBy('nomb_tutor')
             ->get();
 
         if ($request->expectsJson()) {
             return response()->json([
-                'owners' => $tutores->map(fn (Tutor $t) => [
+                // Normaliza al formato esperado por las vistas (results[])
+                'results' => $tutores->map(fn (Tutor $t) => [
                     'id' => $t->id_tutor,
                     'cedula' => $t->ced_tutor,
                     'nombre' => trim(($t->nomb_tutor ?? '').' '.($t->apell_tutor ?? '')),
                     'telefono' => $t->tel_tutor,
-                    'correo' => $t->correo_tutor,
+                    'email' => $t->correo_tutor,
                     'direccion' => $t->direc_tutor,
                     'mascotas' => (int) $t->mascotas_count,
-                ]),
+                ])->values(),
             ]);
         }
 
@@ -66,4 +72,3 @@ class TutorController extends Controller
         ], 201);
     }
 }
-

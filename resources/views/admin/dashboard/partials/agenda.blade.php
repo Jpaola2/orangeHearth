@@ -1,6 +1,6 @@
 {{-- resources/views/admin/dashboard/partials/agenda.blade.php --}}
 <section id="agenda" class="dashboard-section" style="display:none;">
-  <h3><i class="fas fa-calendar-alt"></i> Gestión de citas del sistema</h3>
+  <h3><i class="fas fa-calendar-alt"></i> Gesti&oacute;n de citas del sistema</h3>
   <p>Visualiza y gestiona todas las citas agendadas en el sistema.</p>
 
   <div class="actions-row">
@@ -31,7 +31,7 @@
         <select id="filtroVeterinario">
           <option value="">Todos los veterinarios</option>
           @foreach(($veterinarios ?? []) as $vet)
-            <option value="{{ $vet['id'] }}">{{ $vet['nombre'] }} ({{ $vet['estado'] }})</option>
+            <option value="{{ $vet['id'] }}">{{ $vet['nombre'] }}</option>
           @endforeach
         </select>
       </label>
@@ -72,7 +72,7 @@
           <th>Veterinario</th>
           <th>Especialidad</th>
           <th>Estado</th>
-          <th style="width:180px;">Acciones</th>
+          <th style="width:160px;">Acciones</th>
         </tr>
       </thead>
       <tbody id="citasTableBody">
@@ -85,177 +85,216 @@
 </section>
 
 <script>
-(function () {
-  // ==== ENDPOINTS (tus rutas existentes) ====
-  const LIST_URL    = "{{ route('admin.appointments') }}";            // GET JSON (?estado=&veterinario=&fecha=)
-  const EXPORT_URL  = "{{ route('admin.appointments.export') }}";      // GET CSV (mismos filtros)
-  const UPDATE_URL  = id => "{{ url('/admin/appointments') }}/" + id + "/estado"; // PATCH
-  const CSRF_TOKEN  = "{{ csrf_token() }}";
+document.addEventListener("DOMContentLoaded", function () {
+  // Endpoints (sin reprogramación)
+  const LIST_URL = @json(route('admin.appointments'));
+  const EXPORT_URL = @json(route('admin.appointments.export'));
+  const BASE_APPOINTMENT_URL = @json(url('/admin/appointments'));
+  const UPDATE_URL = (id) => `${BASE_APPOINTMENT_URL}/${id}/estado`;
+  const ASSIGN_VET_URL = (id) => `${BASE_APPOINTMENT_URL}/${id}/assign-vet`;
 
-  // ==== ELEMENTOS UI ====
-  const SECTION_ID   = 'agenda';
-  const $tbody       = document.getElementById('citasTableBody');
-  const $btnRefresh  = document.querySelector('[data-action="refresh-appointments"]');
-  const $btnExport   = document.querySelector('[data-action="export-appointments"]');
+  const VETS = @json($veterinarios ?? []);
+  const CSRF_TOKEN = @json(csrf_token());
 
-  // filtros
-  const $fEstado     = document.getElementById('filtroEstado');
-  const $fVet        = document.getElementById('filtroVeterinario');
-  const $fFecha      = document.getElementById('filtroFecha');
+  const SECTION_ID = "agenda";
+  const tbody = document.getElementById("citasTableBody");
+  const btnRefresh = document.querySelector('[data-action="refresh-appointments"]');
+  const btnExport = document.querySelector('[data-action="export-appointments"]');
+  const filtroEstado = document.getElementById("filtroEstado");
+  const filtroVeterinario = document.getElementById("filtroVeterinario");
+  const filtroFecha = document.getElementById("filtroFecha");
+  const kpiHoy = document.getElementById("citasHoy");
+  const kpiSemana = document.getElementById("citasSemana");
+  const kpiConf = document.getElementById("citasConfirmadas");
+  const kpiPend = document.getElementById("citasPendientes");
 
-  // KPIs
-  const $kHoy        = document.getElementById('citasHoy');
-  const $kSemana     = document.getElementById('citasSemana');
-  const $kConf       = document.getElementById('citasConfirmadas');
-  const $kPend       = document.getElementById('citasPendientes');
-
-  // ==== HELPERS ====
-  function setEmptyRow(text) {
-    $tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">${text}</td></tr>`;
+  function setEmptyRow(message) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">${message}</td></tr>`;
   }
-  function badgeEstado(estado) {
-    const map = {
-      pendiente:  {bg:'#fff0f0', fg:'#cc2e2e'},
-      confirmada:{bg:'#e8f9ef', fg:'#1ea672'},
-      completada:{bg:'#e8f1ff', fg:'#2a6df4'},
-      cancelada: {bg:'#f6f6f6', fg:'#666'}
+
+  function renderBadge(estado) {
+    const styles = {
+      pendiente:   { bg: "#fff0f0", fg: "#cc2e2e" },
+      confirmada:  { bg: "#e8f9ef", fg: "#1ea672" },
+      completada:  { bg: "#e8f1ff", fg: "#2a6df4" },
+      cancelada:   { bg: "#f6f6f6", fg: "#666" },
     };
-    const s = (estado || 'pendiente').toLowerCase();
-    const c = map[s] || map['pendiente'];
-    return `<span style="display:inline-block;padding:.2rem .55rem;border-radius:999px;background:${c.bg};color:${c.fg};font-size:.75rem;font-weight:600">${s.charAt(0).toUpperCase()+s.slice(1)}</span>`;
-  }
-  function estadoSelectHTML(actual) {
-    const opts = ['pendiente','confirmada','completada','cancelada']
-      .map(v => `<option value="${v}" ${v===actual?'selected':''}>${v.charAt(0).toUpperCase()+v.slice(1)}</option>`).join('');
-    return `<select data-action="change-estado" class="mini-select">${opts}</select>`;
-  }
-  function fmt(str){ return (str ?? '').toString(); }
-
-  // ==== RENDER ====
-  function renderStats(summary){
-    $kHoy.textContent    = summary?.citas_hoy ?? 0;
-    $kSemana.textContent = summary?.citas_semana ?? 0;
-    $kConf.textContent   = summary?.confirmadas ?? 0;
-    $kPend.textContent   = summary?.pendientes ?? 0;
+    const key = (estado || "pendiente").toLowerCase();
+    const palette = styles[key] || styles.pendiente;
+    const label = key.charAt(0).toUpperCase() + key.slice(1);
+    return `<span style="display:inline-block;padding:.2rem .55rem;border-radius:999px;background:${palette.bg};color:${palette.fg};font-size:.75rem;font-weight:600">${label}</span>`;
   }
 
-  function renderRows(rows){
-    if (!rows || !rows.length) return setEmptyRow('Sin citas registradas');
-    $tbody.innerHTML = rows.map(c => `
-      <tr data-id="${c.id}">
-        <td>${fmt(c.fecha)}</td>
-        <td>${fmt(c.mascota)}</td>
-        <td>${fmt(c.tutor)}</td>
-        <td>${fmt(c.veterinario)}</td>
-        <td>${fmt(c.especialidad)}</td>
-        <td>${badgeEstado(c.estado)}</td>
-        <td style="white-space:nowrap;display:flex;gap:8px;align-items:center;">
-          ${estadoSelectHTML((c.estado || 'pendiente').toLowerCase())}
-          <button type="button" class="btn btn-sm" data-action="aplicar-estado" title="Aplicar"><span style="font-size:13px;">✅</span></button>
+  function estadoSelect(value) {
+    const estados = ["pendiente", "confirmada", "completada", "cancelada"];
+    return `<select data-action="change-estado" class="mini-select">
+      ${estados.map((estado) => `<option value="${estado}" ${estado === value ? "selected" : ""}>
+        ${estado.charAt(0).toUpperCase() + estado.slice(1)}
+      </option>`).join("")}
+    </select>`;
+  }
+
+  function vetSelect(selectedId) {
+    const options = [{ id: "", nombre: "Sin asignar" }].concat(VETS);
+    return `<select data-action="change-vet" class="mini-select">
+      ${options.map((vet) => `<option value="${vet.id}" ${String(vet.id) === String(selectedId || "") ? "selected" : ""}>
+        ${vet.nombre}
+      </option>`).join("")}
+    </select>`;
+  }
+
+  function renderStats(summary = {}) {
+    kpiHoy.textContent = summary.citas_hoy ?? 0;
+    kpiSemana.textContent = summary.citas_semana ?? 0;
+    kpiConf.textContent = summary.confirmadas ?? 0;
+    kpiPend.textContent = summary.pendientes ?? 0;
+  }
+
+  function renderRows(rows = []) {
+    if (!rows.length) {
+      setEmptyRow("Sin citas registradas");
+      return;
+    }
+
+    tbody.innerHTML = rows.map((row) => `
+      <tr data-id="${row.id}">
+        <td>${row.fecha}</td>
+        <td>${row.mascota}</td>
+        <td>${row.tutor}</td>
+        <td>${vetSelect(row.veterinario_id)}</td>
+        <td>${row.especialidad}</td>
+        <td>${renderBadge(row.estado)}</td>
+        <td style="display:flex;gap:8px;align-items:center;white-space:nowrap;">
+          ${estadoSelect((row.estado || "pendiente").toLowerCase())}
+          <button type="button" class="btn btn-sm" data-action="aplicar-estado" title="Aplicar">Aplicar</button>
         </td>
       </tr>
-    `).join('');
+    `).join("");
   }
 
-  // ==== CARGA ====
-  function buildQuery(){
-    const q = new URLSearchParams();
-    if ($fEstado.value) q.set('estado',$fEstado.value);
-    if ($fVet.value)    q.set('veterinario',$fVet.value);
-    if ($fFecha.value)  q.set('fecha',$fFecha.value);
-    return q.toString() ? ('?'+q.toString()) : '';
+  function buildQueryString() {
+    const params = new URLSearchParams();
+    if (filtroEstado.value) params.set("estado", filtroEstado.value);
+    if (filtroVeterinario.value) params.set("veterinario", filtroVeterinario.value);
+    if (filtroFecha.value) params.set("fecha", filtroFecha.value);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
   }
 
-  async function loadAppointments(){
-    setEmptyRow('Cargando…');
-    try{
-      const res = await fetch(LIST_URL + buildQuery(), { headers:{'Accept':'application/json'} });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      const json = await res.json();
-      renderRows(json.appointments || []);
-      renderStats(json.summary || {});
-    }catch(e){
-      console.error(e);
-      setEmptyRow('No se pudo cargar la lista. Intenta nuevamente.');
-      renderStats({citas_hoy:0,citas_semana:0,confirmadas:0,pendientes:0});
+  async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {
+      credentials: "same-origin",
+      headers: { Accept: "application/json", ...(options.headers || {}) },
+      ...options,
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP ${response.status} ${text}`);
+    }
+    return response.json();
+  }
+
+  async function patchJson(url, payload = {}) {
+    return fetchJson(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": CSRF_TOKEN,
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function loadAppointments() {
+    setEmptyRow("Cargando...");
+    try {
+      const data = await fetchJson(LIST_URL + buildQueryString());
+      renderRows(data.appointments || []);
+      renderStats(data.summary || {});
+    } catch (error) {
+      console.error(error);
+      setEmptyRow("No se pudo cargar la lista. Intenta nuevamente.");
+      renderStats({ citas_hoy: 0, citas_semana: 0, confirmadas: 0, pendientes: 0 });
     }
   }
 
-  // ==== ACCIONES ====
-  // Cambiar estado (delegación en tbody)
-  $tbody.addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('button[data-action="aplicar-estado"]');
-    if (!btn) return;
+  async function cambiarEstado(row) {
+    const id = row.dataset.id;
+    const select = row.querySelector('select[data-action="change-estado"]');
+    if (!id || !select) return;
+    try {
+      await patchJson(UPDATE_URL(id), { estado: select.value });
+      await loadAppointments();
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo actualizar el estado.");
+    }
+  }
 
-    const tr = btn.closest('tr');
-    const id = tr?.dataset.id;
-    const sel = tr?.querySelector('select[data-action="change-estado"]');
-    if (!id || !sel) return;
+  async function asignarVeterinario(row, select) {
+    const id = row?.dataset?.id;
+    if (!id || !select) return;
+    try {
+      await patchJson(ASSIGN_VET_URL(id), { id_mv: select.value || null });
+      await loadAppointments();
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo asignar el m\u00E9dico.");
+    }
+  }
 
-    const nuevoEstado = sel.value;
-    try{
-      const res = await fetch(UPDATE_URL(id), {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': CSRF_TOKEN,
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ estado: nuevoEstado })
-      });
-      if (!res.ok){
-        const text = await res.text();
-        throw new Error('HTTP '+res.status+' '+text);
-      }
-      await loadAppointments(); // refrescar de inmediato
-    }catch(e){
-      console.error(e);
-      alert('No se pudo actualizar el estado.');
+  // Listeners
+  tbody.addEventListener("change", async function (event) {
+    const select = event.target.closest('select[data-action="change-vet"]');
+    if (!select) return;
+    const row = select.closest("tr[data-id]");
+    if (!row) return;
+    await asignarVeterinario(row, select);
+  });
+
+  tbody.addEventListener("click", function (event) {
+    const row = event.target.closest("tr[data-id]");
+    if (!row) return;
+    if (event.target.closest('button[data-action="aplicar-estado"]')) {
+      cambiarEstado(row);
+      return;
     }
   });
 
-  // Exportar (respeta filtros actuales)
-  function exportAppointments(){
-    window.location.href = EXPORT_URL + buildQuery();
+  function exportAppointments() {
+    window.location.href = EXPORT_URL + buildQueryString();
   }
 
-  // Filtros => recarga con debounce
-  let t;
-  function triggerReload(){
-    clearTimeout(t);
-    t = setTimeout(loadAppointments, 250);
+  // Filtros con debounce
+  let debounceId;
+  function triggerReload() {
+    clearTimeout(debounceId);
+    debounceId = setTimeout(loadAppointments, 250);
   }
-  $fEstado.addEventListener('change', triggerReload);
-  $fVet   .addEventListener('change', triggerReload);
-  $fFecha .addEventListener('change', triggerReload);
 
-  // Botones
-  if ($btnRefresh) $btnRefresh.addEventListener('click', loadAppointments);
-  if ($btnExport)  $btnExport.addEventListener('click', exportAppointments);
+  filtroEstado.addEventListener("change", triggerReload);
+  filtroVeterinario.addEventListener("change", triggerReload);
+  filtroFecha.addEventListener("change", triggerReload);
+  if (btnRefresh) btnRefresh.addEventListener("click", loadAppointments);
+  if (btnExport) btnExport.addEventListener("click", exportAppointments);
 
-  // Hook con tu función global para mostrar secciones
-  const _oldShow = window.adminShowSection;
-  window.adminShowSection = function(id){
-    if (typeof _oldShow === 'function') _oldShow(id);
-    if (id === SECTION_ID) loadAppointments(); // carga automática al abrir
+  // Integración con el sidebar
+  const previousShowSection = window.adminShowSection;
+  window.adminShowSection = function (id, event) {
+    let result = false;
+    if (typeof previousShowSection === "function") {
+      result = previousShowSection(id, event);
+    }
+    if (id === SECTION_ID) {
+      loadAppointments();
+    }
+    return result;
   };
 
-  // Carga inicial si ya está visible
-  const $section = document.getElementById(SECTION_ID);
-  if ($section && $section.style.display !== 'none') loadAppointments();
-
-  // ==== estilos mínimos para el select chico en acciones ====
-  const style = document.createElement('style');
-  style.textContent = `
-    .mini-select{
-      font-size: .8rem;
-      padding: .25rem .45rem;
-      border-radius: 6px;
-      border: 1px solid #ddd;
-    }
-    #citasTable td { vertical-align: middle; }
-    .btn.btn-sm{ padding:.25rem .45rem; line-height:1; }
-  `;
-  document.head.appendChild(style);
-})();
+  // Si ya está visible, cargar de una
+  const section = document.getElementById(SECTION_ID);
+  if (section && section.style.display !== "none") {
+    loadAppointments();
+  }
+});
 </script>

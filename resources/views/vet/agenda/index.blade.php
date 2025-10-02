@@ -82,9 +82,15 @@
       <div style="padding:14px 16px;">
         <form id="formNueva">
           @csrf
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
             <label>Fecha
-            <input type="date" name="fecha" required
+            <input type="date" name="fecha" id="fechaNueva" required
+              style="width:100%; padding:10px 12px; height:42px; font-size:14px;
+                    border:1px solid #ccc; border-radius:8px; box-sizing:border-box; background:#fff;">
+          </label>
+
+          <label>Hora
+            <input type="time" name="hora" id="horaNueva" step="900" required
               style="width:100%; padding:10px 12px; height:42px; font-size:14px;
                     border:1px solid #ccc; border-radius:8px; box-sizing:border-box; background:#fff;">
           </label>
@@ -154,7 +160,7 @@
       if(!rows.length){ setEmpty('Sin citas'); return; }
       tbody.innerHTML = rows.map(c=>{
         return `<tr data-id="${c.id}">
-          <td>${c.fecha}</td>
+          <td>${c.fecha_hora || `${c.fecha} ${c.hora || ''}`}</td>
           <td>${(c.mascota||'')}</td>
           <td>${(c.tutor||'')}<br><small>${c.tutor_email||''}</small></td>
           <td>${c.especialidad||''}</td>
@@ -192,6 +198,64 @@
     const tutorId = document.getElementById('tutorId');
     const tutorInfo = document.getElementById('tutorInfo');
     const mascotaSel = document.getElementById('mascotaSel');
+    const fechaNueva = document.getElementById('fechaNueva');
+    const horaNueva = document.getElementById('horaNueva');
+    const medicoSel = document.getElementById('medico');
+
+    async function cargarVeterinariosDisponibles() {
+
+      if (!medicoSel) return;
+
+      const f = fechaNueva ? fechaNueva.value : '';
+
+      const h = horaNueva ? horaNueva.value : '';
+
+      if (!f) {
+
+        medicoSel.innerHTML = '<option value="">Seleccione una fecha...</option>';
+
+        return;
+
+      }
+
+      medicoSel.innerHTML = '<option value="">Cargando...</option>';
+
+      try {
+
+        let url = `{{ route('tutor.citas.available-vets') }}?fecha=${encodeURIComponent(f)}`;
+
+        if (h) {
+
+          url += `&hora=${encodeURIComponent(h)}`;
+
+        }
+
+        const res = await fetch(url, { headers:{'Accept':'application/json'}, credentials:'same-origin' });
+
+        const j = await res.json();
+
+        const vets = j.veterinarios || [];
+
+        medicoSel.innerHTML = vets.length
+
+          ? vets.map(v => `<option value="${v.id}">${v.nombre}${v.especialidad ? ' - ' + v.especialidad : ''}</option>`).join('')
+
+          : '<option value="">Sin disponibilidad</option>';
+
+      } catch (error) {
+
+        console.error(error);
+
+        medicoSel.innerHTML = '<option value="">Error cargando medicos</option>';
+
+      }
+
+    }
+
+
+
+    fechaNueva?.addEventListener('change', cargarVeterinariosDisponibles);
+    horaNueva?.addEventListener('change', () => { if (fechaNueva?.value) cargarVeterinariosDisponibles(); });
 
     function openModal(){ modal.style.display='flex'; tutorInfo.style.display='none'; tutorInfo.innerHTML=''; tutorId.value=''; mascotaSel.innerHTML='<option value="">Seleccione una mascota…</option>'; }
     function closeModal(){ modal.style.display='none'; formNueva.reset(); tutorId.value=''; tutorInfo.innerHTML=''; tutorInfo.style.display='none'; mascotaSel.innerHTML='<option value="">Seleccione una mascota…</option>'; }

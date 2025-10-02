@@ -29,12 +29,12 @@ return new class extends Migration
                 }
             }
 
-            if (!Schema::hasColumn('medico_veterinario', 'estado')) {
-                $column = $table->enum('estado', ['activo', 'inactivo'])->default('activo');
-                if (Schema::hasColumn('medico_veterinario', 'telefono')) {
-                    $column->after('telefono');
-                }
-            }
+            // if (!Schema::hasColumn('medico_veterinario', 'estado')) {
+            //     $column = $table->enum('estado', ['activo', 'inactivo'])->default('activo');
+            //     if (Schema::hasColumn('medico_veterinario', 'telefono')) {
+            //         $column->after('telefono');
+            //     }
+            // }
         });
     }
 
@@ -45,7 +45,7 @@ return new class extends Migration
         }
 
         Schema::table('medico_veterinario', function (Blueprint $table) {
-            foreach (['estado', 'telefono', 'especialidad'] as $column) {
+            foreach (['telefono', 'especialidad'] as $column) {
                 if (Schema::hasColumn('medico_veterinario', $column)) {
                     $table->dropColumn($column);
                 }

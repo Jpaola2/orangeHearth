@@ -75,3 +75,46 @@
 </section>
 
 
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const form = document.getElementById('vetForm');
+  if(!form) return;
+  const fields = [
+    {name:'nombre', req:true},
+    {name:'cedula', req:true, test:v=>/^\d{6,20}$/.test(v)},
+    {name:'correo', req:true, test:v=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)},
+    {name:'clave', req:true, test:v=>v.length>=8},
+    {name:'especialidad', req:true},
+    {name:'tarjeta_profesional', req:true},
+    {name:'telefono', req:true}
+  ];
+  function setErr(input, ok, msg){
+    input.classList.toggle('error', !ok);
+    const err = input.parentElement.querySelector('small.error');
+    if(err){ err.textContent = ok? '' : (msg||'Campo inválido'); err.style.display = ok? 'none':'block'; }
+  }
+  function validateInput(input){
+    const def = fields.find(f=>f.name===input.name); if(!def) return true;
+    const v = (input.value||'').trim();
+    let ok = true; let msg='';
+    if(def.req && !v){ ok=false; msg='Este campo es obligatorio'; }
+    if(ok && def.test){ ok = !!def.test(v); if(!ok) msg='Formato inválido'; }
+    setErr(input, ok, msg); return ok;
+  }
+  form.querySelectorAll('input,select').forEach(i=>{
+    i.addEventListener('blur', ()=>validateInput(i));
+    i.addEventListener('input', ()=>validateInput(i));
+  });
+  form.addEventListener('submit', e=>{
+    let ok = true; fields.forEach(f=>{ const i=form.querySelector(`[name="${f.name}"]`); if(i && !validateInput(i)) ok=false; });
+    if(!ok){ e.preventDefault(); alert('Corrige los campos en rojo antes de continuar.'); }
+  });
+});
+</script>
+
+<style>
+#registro-vet .form-group input.error, #registro-vet .form-group select.error {
+  border:2px solid #dc3545 !important; background:#fdf2f2;
+}
+#registro-vet small.error { color:#dc3545; display:none; }
+</style>

@@ -21,7 +21,7 @@ class RegisterController extends Controller
             'nombre'      => ['required','string','min:3','max:200'],
             'tipo_id'     => ['required','string'],
             'numero_id'   => ['required','string','max:20','unique:tutor,ced_tutor'],
-            'correo'      => ['required','email','max:150','unique:users,email'],
+            'correo'      => ['required','email:rfc,dns','max:150','unique:users,email'],
             'password'    => ['required','string','min:8'],
             'telefono'    => ['required','string','max:20'],
             'direccion'   => ['required','string','max:255'],

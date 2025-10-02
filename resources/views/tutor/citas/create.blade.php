@@ -23,9 +23,15 @@
     <h1><i class="fas fa-calendar-plus"></i> Agendar Cita</h1>
     <form id="form" method="POST" action="{{ route('tutor.citas.store') }}">
       @csrf
-      <div class="row">
+      <div class="row" style="grid-template-columns:repeat(3,1fr);">
         <label>Fecha
           <input type="date" name="fecha" id="fecha" required
+            style="width:100%; padding:10px 12px; height:42px; font-size:14px;
+                  border:1px solid #ccc; border-radius:8px; box-sizing:border-box; background:#fff;">
+        </label>
+
+        <label>Hora
+          <input type="time" name="hora" id="hora" step="900" required
             style="width:100%; padding:10px 12px; height:42px; font-size:14px;
                   border:1px solid #ccc; border-radius:8px; box-sizing:border-box; background:#fff;">
         </label>
@@ -46,6 +52,9 @@
               <option value="{{ $m->id_masc }}" @selected($prefMascota==$m->id_masc)>{{ $m->nom_masc }}</option>
             @endforeach
           </select>
+          @error('medico_id')
+            <div style="color:#c0392b; font-size:12px; margin-top:6px;">El médico ya tiene una cita dentro de ese bloque de 30 minutos.</div>
+          @enderror
         </label>
         <label>Veterinario disponible
           <select name="medico_id" id="medico" required>
@@ -63,18 +72,26 @@
 
   <script>
     const fecha = document.getElementById('fecha');
+    const hora = document.getElementById('hora');
     const medico = document.getElementById('medico');
-    fecha.addEventListener('change', async ()=>{
+
+    async function cargarVeterinariosDisponibles(){
+      const f = fecha.value;
+      const h = hora.value;
+      if(!f){ medico.innerHTML='<option value="">Seleccione una fecha…</option>'; return; }
       medico.innerHTML = '<option value="">Cargando…</option>';
-      const f = fecha.value; if(!f){ medico.innerHTML='<option value="">Seleccione una fecha…</option>'; return; }
       try{
-        const url = `{{ route('tutor.citas.available-vets') }}?fecha=${encodeURIComponent(f)}`;
+        let url = `{{ route('tutor.citas.available-vets') }}?fecha=${encodeURIComponent(f)}`;
+        if(h){ url += `&hora=${encodeURIComponent(h)}`; }
         const res = await fetch(url, { headers:{'Accept':'application/json'}, credentials:'same-origin' });
         const j = await res.json();
         const vets = j.veterinarios||[];
         medico.innerHTML = vets.length ? vets.map(v=>`<option value="${v.id}">${v.nombre}${v.especialidad?(' - '+v.especialidad):''}</option>`).join('') : '<option value="">Sin disponibilidad</option>';
       }catch(e){ medico.innerHTML='<option value="">Error cargando médicos</option>'; }
-    });
+    }
+
+    fecha.addEventListener('change', cargarVeterinariosDisponibles);
+    hora.addEventListener('change', ()=>{ if(fecha.value) cargarVeterinariosDisponibles(); });
   </script>
 </body>
 </html>

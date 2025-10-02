@@ -1,0 +1,107 @@
+@extends('layouts.auth')
+
+@section('title', 'Registrar administrador')
+
+@section('content')
+  <a href="{{ url('/') }}" class="back-link">
+    <i class="fas fa-arrow-left"></i>
+    Volver al Inicio
+  </a>
+
+  <div class="login-container">
+    <div class="logo-section">
+      <h1>
+        <i class="fas fa-user-shield"></i>
+        OrangeHearth
+      </h1>
+      <p>Registro Administrador</p>
+      <div class="veterinary-badge">
+        <i class="fas fa-user-plus"></i>
+        Crear cuenta administrativa
+      </div>
+    </div>
+
+    <div class="professional-info">
+      <h4><i class="fas fa-info-circle"></i> Importante</h4>
+      <p>Solo se permite registrar administradores con el NIT autorizado. Todos los campos marcados son obligatorios.</p>
+    </div>
+
+    @if ($errors->any())
+      <div class="professional-info" style="border-left-color:#e74c3c">
+        <h4 style="color:#e74c3c"><i class="fas fa-exclamation-triangle"></i> Errores de validación</h4>
+        <ul style="margin:.5rem 0 0 1rem;color:#e74c3c;">
+          @foreach ($errors->all() as $error)
+            <li>{{ $error }}</li>
+          @endforeach
+        </ul>
+      </div>
+    @endif
+
+    <form id="adminRegisterForm" method="POST" action="{{ route('admin.register.store') }}" novalidate>
+      @csrf
+
+      <div class="form-group">
+        <label for="nombre_completo"><i class="fas fa-user"></i> Nombre completo</label>
+        <input type="text" id="nombre_completo" name="nombre_completo" value="{{ old('nombre_completo') }}" required class="@error('nombre_completo') error @enderror">
+        <div class="error-message @error('nombre_completo') visible @enderror">@error('nombre_completo'){{ $message }}@enderror</div>
+      </div>
+
+      <div class="form-group">
+        <label for="email"><i class="fas fa-envelope"></i> Correo electrónico</label>
+        <input type="email" id="email" name="email" value="{{ old('email') }}" required class="@error('email') error @enderror">
+        <div class="error-message @error('email') visible @enderror">@error('email'){{ $message }}@enderror</div>
+      </div>
+
+      <div class="form-group">
+        <label for="telefono"><i class="fas fa-phone"></i> Teléfono (opcional)</label>
+        <input type="text" id="telefono" name="telefono" value="{{ old('telefono') }}" placeholder="+573001112233">
+        <div class="error-message"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="cedula"><i class="fas fa-id-card"></i> Cédula</label>
+        <input type="text" id="cedula" name="cedula" value="{{ old('cedula') }}" required placeholder="Solo dígitos (6-10)" class="@error('cedula') error @enderror">
+        <div class="error-message @error('cedula') visible @enderror">@error('cedula'){{ $message }}@enderror</div>
+      </div>
+
+      <div class="form-group">
+        <label for="empresa_nombre"><i class="fas fa-building"></i> Empresa (Razón social)</label>
+        <input type="text" id="empresa_nombre" name="empresa_nombre" value="{{ old('empresa_nombre') }}" required class="@error('empresa_nombre') error @enderror">
+        <div class="error-message @error('empresa_nombre') visible @enderror">@error('empresa_nombre'){{ $message }}@enderror</div>
+      </div>
+
+      <div class="form-group">
+        <label for="nit"><i class="fas fa-file-invoice"></i> NIT (5 dígitos)</label>
+        <input type="password" id="nit" name="nit" value="{{ old('nit') }}" required minlength="5" maxlength="5" pattern="\d{5}" inputmode="numeric" autocomplete="off" class="@error('nit') error @enderror">
+        <div class="error-message @error('nit') visible @enderror">@error('nit'){{ $message }}@enderror</div>
+      </div>
+
+      <div class="form-group">
+        <label for="password"><i class="fas fa-lock"></i> Contraseña</label>
+        <div class="password-toggle">
+          <input type="password" id="password" name="password" required minlength="8" class="@error('password') error @enderror">
+          <i class="fas fa-eye" id="togglePassword"></i>
+        </div>
+        <div class="error-message @error('password') visible @enderror">@error('password'){{ $message }}@enderror</div>
+      </div>
+
+      <div class="form-group">
+        <label for="password_confirmation"><i class="fas fa-lock"></i> Confirmar contraseña</label>
+        <input type="password" id="password_confirmation" name="password_confirmation" required minlength="8">
+        <div class="error-message"></div>
+      </div>
+
+      <button type="submit" class="login-btn" id="registerButton">
+        <i class="fas fa-user-plus"></i>
+        <span class="loading fas fa-spinner"></span>
+        Crear cuenta
+      </button>
+    </form>
+
+    <div class="additional-options">
+      <p>¿Ya tienes cuenta? <a href="{{ route('login.admin') }}">Iniciar sesión</a></p>
+    </div>
+  </div>
+  <script src="{{ asset('js/admin-register.js') }}"></script>
+@endsection
+

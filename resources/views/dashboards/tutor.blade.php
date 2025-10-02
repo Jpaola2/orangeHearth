@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -22,7 +22,7 @@
     .pets-section { background:#fff; padding:2rem; border-radius:15px; box-shadow:0 5px 20px rgba(0,0,0,.08); }
     .pets-section h2 { color:#d86f00; margin:0 0 1.2rem 0; font-size:1.6rem; display:flex; align-items:center; gap:.5rem; }
     .pets-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1.2rem; }
-    .pet-card { border:2px solid #f28c28; border-radius:15px; padding:1.2rem; background:linear-gradient(135deg,#fff,#fff8f0); cursor:pointer; transition:all .2s; }
+    .pet-card { border:2px solid #f28c28; border-radius:15px; padding:1.2rem; background:linear-gradient(135deg,#fff,#fff8f0); transition:all .2s; }
     .pet-card:hover { transform:translateY(-4px); box-shadow:0 8px 20px rgba(242,140,40,.18); }
     .pet-header { display:flex; align-items:center; gap:1rem; margin-bottom:1rem; }
     .pet-avatar { width:56px; height:56px; background:linear-gradient(135deg,#f28c28,#d86f00); border-radius:50%; display:grid; place-items:center; color:#fff; font-size:1.4rem; font-weight:700; }
@@ -41,7 +41,7 @@
 <body>
   <div class="navbar">
     <div class="brand"><i class="fas fa-paw"></i> OrangeHearth</div>
-    <form method="POST" action="{{ route('logout') }}">@csrf <button type="submit"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</button></form>
+    <form method="POST" action="{{ route('logout') }}">@csrf <button type="submit"><i class="fas fa-sign-out-alt"></i> Cerrar sesiÃ³n</button></form>
   </div>
 
   <div class="main">
@@ -53,7 +53,7 @@
     <div class="quick-actions">
       <button type="button" class="action-card" id="btnAddPet">
         <i class="fas fa-plus-circle"></i>
-        <h3>Añadir Mascota</h3>
+        <h3>AÃ±adir Mascota</h3>
         <p>Registra una nueva mascota en tu perfil</p>
       </button>
       <a class="action-card" href="{{ route('tutor.citas.create') }}">
@@ -64,9 +64,9 @@
       <a class="action-card" href="{{ route('tutor.citas.index') }}">
         <i class="fas fa-history"></i>
         <h3>Historial</h3>
-        <p>Consulta el historial médico completo</p>
+        <p>Consulta el historial mÃ©dico completo</p>
       </a>
-      <a class="action-card" href="#" onclick="alert('Emergencias: contacta a tu clínica 24h'); return false;">
+      <a class="action-card" href="#" onclick="alert('Emergencias: contacta a tu clÃ­nica 24h'); return false;">
         <i class="fas fa-ambulance"></i>
         <h3>Emergencias</h3>
         <p>Contacto directo para urgencias</p>
@@ -77,12 +77,12 @@
       <h2><i class="fas fa-paw"></i> Mis Mascotas</h2>
       <div class="pets-grid">
         @forelse(($mascotas ?? []) as $mascota)
-          <div class="pet-card" onclick="window.location='{{ route('tutor.mascotas.show', ['mascota' => $mascota->id_masc]) }}'">
+          <div class="pet-card" >
             <div class="pet-header">
               <div class="pet-avatar">{{ strtoupper(substr($mascota->nom_masc,0,1)) }}</div>
               <div class="pet-info">
                 <h3>{{ $mascota->nom_masc }}</h3>
-                <p>{{ $mascota->espe_masc }} • {{ $mascota->gene_masc }}</p>
+                <p>{{ $mascota->espe_masc }} â€¢ {{ $mascota->gene_masc }}</p>
               </div>
             </div>
             <div class="pet-details">
@@ -126,7 +126,7 @@
                 <option value="otro">Otro</option>
               </select>
             </label>
-            <label>Género
+            <label>GÃ©nero
               <select name="gene_masc" required style="width:100%; padding:10px 12px; height:42px; border:1px solid #ccc; border-radius:8px;">
                 <option value="">Seleccione</option>
                 <option value="macho">Macho</option>
@@ -134,15 +134,15 @@
               </select>
             </label>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-              <label>Edad (número)
+              <label>Edad (nÃºmero)
                 <input type="number" min="0" name="edad_masc" style="width:100%; padding:10px 12px; height:42px; border:1px solid #ccc; border-radius:8px;" />
               </label>
               <label>Unidad
                 <select name="unidad_edad" style="width:100%; padding:10px 12px; height:42px; border:1px solid #ccc; border-radius:8px;">
-                  <option value="">—</option>
-                  <option value="dias">Días</option>
+                  <option value="">â€”</option>
+                  <option value="dias">DÃ­as</option>
                   <option value="meses">Meses</option>
-                  <option value="años">Años</option>
+                  <option value="aÃ±os">AÃ±os</option>
                 </select>
               </label>
             </div>
@@ -177,7 +177,7 @@
         const data = new FormData(form);
         try{
           const res = await fetch(`{{ route('tutor.mascotas.quick') }}`, { method:'POST', headers:{'Accept':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body:data, credentials:'same-origin' });
-          if(res.status===422){ const j = await res.json(); alert(Object.values(j.errors||{}).flat().join('\n')||'Validación fallida'); return; }
+          if(res.status===422){ const j = await res.json(); alert(Object.values(j.errors||{}).flat().join('\n')||'ValidaciÃ³n fallida'); return; }
           if(!res.ok){ const t = await res.text(); throw new Error('Error '+res.status+' '+t); }
           // recargar para ver la nueva mascota en la grilla
           window.location.reload();
@@ -187,3 +187,10 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
+

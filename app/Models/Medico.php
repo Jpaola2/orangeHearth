@@ -20,7 +20,6 @@ class Medico extends Model
         'user_id',
         'especialidad',
         'telefono',
-        'estado',
     ];
 
     // ✅ especifica la FK para evitar ambigüedad

@@ -1,4 +1,4 @@
-// Fallback global handler: works even if setupSidebar did not run yet
+﻿// Fallback global handler: works even if setupSidebar did not run yet
 window.adminShowSection = window.adminShowSection || function(id, ev){
   try { if (ev) ev.preventDefault(); } catch (e) {}
   var sections = document.querySelectorAll('.dashboard-section');
@@ -211,35 +211,7 @@ function setupAppointmentsActions(elements, state, config) {
 function setupVetForm(elements, state, config) {
   if (!elements.vetForm) return;
 
-  elements.vetForm.addEventListener('submit', async event => {
-    event.preventDefault();
-
-    const formData = new FormData(elements.vetForm);
-    const payload = Object.fromEntries(formData.entries());
-
-    try {
-      const response = await fetch(config.endpoints.storeVet, { method: 'POST', headers: buildHeaders(config.csrfToken, true), body: JSON.stringify(payload), credentials: 'same-origin' });
-      if (!response.ok) {
-        const message = await extractError(response);
-        const error = new Error(message || 'No fue posible registrar el veterinario.');
-        error.status = response.status;
-        throw error;
-      }
-
-      const data = await response.json();
-      elements.vetForm.reset();
-      state.veterinarios.push(data.veterinario);
-      populateVeterinarios(elements.filtroVeterinario, state.veterinarios);
-      flashMessage(elements.alert, 'success', data.message || 'Registro exitoso.');
-
-      const redirectUrl = (config.redirects && config.redirects.dashboard) || '/admin';
-      setTimeout(() => { window.location.href = redirectUrl; }, 600);
-    } catch (error) {
-      console.error(error);
-      const message = error && error.status === 422 ? 'Datos invalidos. Revisa la informacion e intentalo nuevamente.' : (error && error.message ? error.message : 'No fue posible registrar el veterinario.');
-      flashMessage(elements.alert, 'error', message);
-    }
-  });
+  return;\n}\n  });
 }
 
 function seedFromPreload(preload, elements) {
@@ -516,6 +488,7 @@ function escapeHtml(value) {
 function formatDateISO(date) { const y = date.getFullYear(); const m = String(date.getMonth()+1).padStart(2,'0'); const d = String(date.getDate()).padStart(2,'0'); return `${y}-${m}-${d}`; }
 
 function getFilenameFromHeaders(headers) { const disp = headers.get('Content-Disposition'); if (!disp) return null; const match = disp.match(/filename="?([^";]+)"?/); return match ? match[1] : null; }
+
 
 
 

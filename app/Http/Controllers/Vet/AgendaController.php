@@ -115,13 +115,21 @@ class AgendaController extends Controller
         return response()->json(['items' => $items]);
     }
 
+    private function appointmentDateTime(Cita $c): Carbon
+    {
+        return $c->fecha_hora ?? Carbon::parse($c->fech_cons);
+    }
+
     private function transform(Cita $c): array
     {
-        $fecha = Carbon::parse($c->fech_cons);
+        $fecha = $this->appointmentDateTime($c);
         return [
             'id' => $c->id_cita_medi,
             'fecha' => $fecha->format('d/m/Y'),
-            'fecha_iso' => $fecha->toDateString(),
+            'hora' => $fecha->format('H:i'),
+            'fecha_hora' => $fecha->format('d/m/Y H:i'),
+            'fecha_iso' => $fecha->format('Y-m-d'),
+            'datetime_local' => $fecha->format('Y-m-d\TH:i'),
             'mascota' => $c->mascota?->nom_masc ?? 'Sin mascota',
             'tutor' => $c->tutor ? trim(($c->tutor->nomb_tutor ?? '').' '.($c->tutor->apell_tutor ?? '')) : 'Sin tutor',
             'tutor_email' => $c->tutor->correo_tutor ?? '',
@@ -139,8 +147,8 @@ class AgendaController extends Controller
         $endOfWeek = (clone $startOfWeek)->endOfWeek();
 
         return [
-            'citas_hoy' => $rows->filter(fn ($c) => Carbon::parse($c->fech_cons)->isSameDay($today))->count(),
-            'citas_semana' => $rows->filter(fn ($c) => Carbon::parse($c->fech_cons)->between($startOfWeek, $endOfWeek))->count(),
+            'citas_hoy' => $rows->filter(fn ($c) => $this->appointmentDateTime($c)->isSameDay($today))->count(),
+            'citas_semana' => $rows->filter(fn ($c) => $this->appointmentDateTime($c)->between($startOfWeek, $endOfWeek))->count(),
             'confirmadas' => $rows->filter(fn ($c) => $c->estado === 'confirmada')->count(),
             'pendientes' => $rows->filter(fn ($c) => ($c->estado ?? 'pendiente') === 'pendiente')->count(),
         ];
@@ -194,6 +202,7 @@ class AgendaController extends Controller
 
         $data = $request->validate([
             'fecha' => ['required','date'],
+            'hora' => ['required','date_format:H:i'],
             'motivo' => ['required','string','max:200'],
             'tutor_id' => ['required','integer','exists:tutor,id_tutor'],
             'mascota_id' => ['required','integer','exists:mascota,id_masc'],
@@ -206,8 +215,11 @@ class AgendaController extends Controller
             return response()->json(['message' => 'La mascota seleccionada no pertenece al tutor indicado.'], 422);
         }
 
+        $datetime = Carbon::createFromFormat('Y-m-d H:i', sprintf('%s %s', $data['fecha'], $data['hora']));
+
         $cita = new Cita();
-        $cita->fech_cons = $data['fecha'];
+        $cita->fech_cons = $datetime->toDateString();
+        $cita->hora_cons = $datetime->format('H:i:s');
         $cita->motiv_cons = $data['motivo'];
         // Algunos esquemas tienen diag_cons/trata_cons como NOT NULL; usar cadenas vacías
         $cita->diag_cons = '';
